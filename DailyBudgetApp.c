@@ -21,7 +21,7 @@ typedef struct DayRecordNode
 DayRecordNode *createMonthRecord(float monthlyBudget, int daysInMonth)
 {
     DayRecordNode *head = NULL, *temp, *newNode;
-    float dailyBudget = monthlyBudget / daysInMonth;
+    float dailyBudget = monthlyBudget / daysInMonth-10;
 
     for (int i = 1; i <= daysInMonth; i++)
     {
