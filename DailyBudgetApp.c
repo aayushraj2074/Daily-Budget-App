@@ -8,22 +8,7 @@ typedef struct DayRecordNode
     int date;
     float budget;
     float remaining;
-    struct DayRecordNode *next;
-} DayRecordNode;
-
-DayRecordNode *createMonthRecord(float monthlyBudget, int daysInMonth)
-{
-    DayRecordNode *head = NULL, *temp, *newNode;
-    float dailyBudget = monthlyBudget / daysInMonth;
-
-    for (int i = 1; i <= daysInMonth; i++)
-    {
-        newNode = (DayRecordNode *)malloc(sizeof(DayRecordNode));
-        newNode->date = i;
-        newNode->budget = dailyBudget;
-        newNode->remaining = dailyBudget;
-        newNode->next = NULL;
-
+    struct DayRecor
         if (head == NULL)
         {
             head = newNode;
