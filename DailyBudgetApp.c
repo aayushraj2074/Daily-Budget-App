@@ -2,14 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct TransactionNode
-{
-    int date;
-    float amount;
-    char category[50];
-    struct TransactionNode *next;
-} TransactionNode;
-
+typedef struct TransactionNo
 typedef struct DayRecordNode
 {
     int date;
