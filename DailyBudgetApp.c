@@ -2,41 +2,37 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct TransactionNode
-{
+typedef struct TransactionNode {
     int date;
     float amount;
     char category[50];
     struct TransactionNode *next;
 } TransactionNode;
 
-typedef struct DayRecordNode
-{
+typedef struct DayRecordNode {
     int date;
     float budget;
     float remaining;
+    TransactionNode *transactions; // attach transactions to each day
     struct DayRecordNode *next;
 } DayRecordNode;
 
-DayRecordNode *createMonthRecord(float monthlyBudget, int daysInMonth)
-{
-    DayRecordNode *head = NULL, *temp, *newNode;
+// Create monthly record with daily budgets
+DayRecordNode *createMonthRecord(float monthlyBudget, int daysInMonth) {
+    DayRecordNode *head = NULL, *temp = NULL, *newNode;
     float dailyBudget = monthlyBudget / daysInMonth;
 
-    for (int i = 1; i <= daysInMonth; i++)
-    {
+    for (int i = 1; i <= daysInMonth; i++) {
         newNode = (DayRecordNode *)malloc(sizeof(DayRecordNode));
         newNode->date = i;
         newNode->budget = dailyBudget;
         newNode->remaining = dailyBudget;
+        newNode->transactions = NULL;
         newNode->next = NULL;
 
-        if (head == NULL)
-        {
+        if (head == NULL) {
             head = newNode;
-        }
-        else
-        {
+        } else {
             temp->next = newNode;
         }
         temp = newNode;
@@ -44,17 +40,15 @@ DayRecordNode *createMonthRecord(float monthlyBudget, int daysInMonth)
     return head;
 }
 
-void addTransaction(DayRecordNode *monthlyRecord, int date, float amount, char *category, int daysInMonth)
-{
+// Add transaction to a specific day
+void addTransaction(DayRecordNode *monthlyRecord, int date, float amount, char *category, int daysInMonth) {
     DayRecordNode *dayRecord = monthlyRecord;
 
-    while (dayRecord != NULL && dayRecord->date != date)
-    {
+    while (dayRecord != NULL && dayRecord->date != date) {
         dayRecord = dayRecord->next;
     }
 
-    if (dayRecord == NULL)
-    {
+    if (dayRecord == NULL) {
         printf("Invalid date!\n");
         return;
     }
@@ -62,111 +56,102 @@ void addTransaction(DayRecordNode *monthlyRecord, int date, float amount, char *
     TransactionNode *newTransaction = (TransactionNode *)malloc(sizeof(TransactionNode));
     newTransaction->date = date;
     newTransaction->amount = amount;
-    strcpy(newTransaction->category, category);
-    newTransaction->next = NULL;
+    strncpy(newTransaction->category, category, sizeof(newTransaction->category) - 1);
+    newTransaction->category[sizeof(newTransaction->category) - 1] = '\0';
+    newTransaction->next = dayRecord->transactions;
+    dayRecord->transactions = newTransaction;
 
     float difference = dayRecord->remaining - amount;
-    if (difference >= 0)
-    {
+    if (difference >= 0) {
         dayRecord->remaining = difference;
-    }
-    else
-    {
+    } else {
         dayRecord->remaining = 0;
-        float deficitPerDay = -difference / (daysInMonth - date);
-        DayRecordNode *temp = dayRecord->next;
-        while (temp != NULL)
-        {
-            temp->remaining -= deficitPerDay;
-            temp = temp->next;
+        if (daysInMonth - date > 0) { // avoid division by zero
+            float deficitPerDay = -difference / (daysInMonth - date);
+            DayRecordNode *temp = dayRecord->next;
+            while (temp != NULL) {
+                temp->remaining -= deficitPerDay;
+                if (temp->remaining < 0) temp->remaining = 0;
+                temp = temp->next;
+            }
         }
     }
 }
 
-void displayRemainingBudget(DayRecordNode *monthlyRecord, int date)
-{
+// Display remaining budget for a given day
+void displayRemainingBudget(DayRecordNode *monthlyRecord, int date) {
     DayRecordNode *dayRecord = monthlyRecord;
-
-    while (dayRecord != NULL && dayRecord->date != date)
-    {
+    while (dayRecord != NULL && dayRecord->date != date) {
         dayRecord = dayRecord->next;
     }
-
-    if (dayRecord == NULL)
-    {
+    if (dayRecord == NULL) {
         printf("Invalid date!\n");
-    }
-    else
-    {
-        printf("Remaining budget for %d: %.2f\n", date, dayRecord->remaining);
+    } else {
+        printf("Remaining budget for day %d: %.2f\n", date, dayRecord->remaining);
     }
 }
 
-void saveDataToFile(DayRecordNode *monthlyRecord, char *filename)
-{
-    FILE *fp = fopen(filename, "w");
-    if (fp == NULL)
-    {
-        printf("Error opening file!\n");
+// Display all transactions for a given day
+void displayTransactions(DayRecordNode *monthlyRecord, int date) {
+    DayRecordNode *dayRecord = monthlyRecord;
+    while (dayRecord != NULL && dayRecord->date != date) {
+        dayRecord = dayRecord->next;
+    }
+    if (dayRecord == NULL) {
+        printf("Invalid date!\n");
         return;
     }
+    printf("Transactions for day %d:\n", date);
+    TransactionNode *t = dayRecord->transactions;
+    if (t == NULL) {
+        printf("  No transactions recorded.\n");
+    }
+    while (t != NULL) {
+        printf("  %.2f spent on %s\n", t->amount, t->category);
+        t = t->next;
+    }
+}
 
+// Display monthly summary
+void displayMonthlySummary(DayRecordNode *monthlyRecord) {
+    float totalSpent = 0, totalBudget = 0;
     DayRecordNode *dayRecord = monthlyRecord;
-    TransactionNode *transaction;
 
-    while (dayRecord != NULL)
-    {
-        fprintf(fp, "%d,%.2f,%.2f\n", dayRecord->date, dayRecord->budget, dayRecord->remaining);
+    while (dayRecord != NULL) {
+        totalBudget += dayRecord->budget;
+        TransactionNode *t = dayRecord->transactions;
+        while (t != NULL) {
+            totalSpent += t->amount;
+            t = t->next;
+        }
         dayRecord = dayRecord->next;
     }
-
-    fclose(fp);
-    printf("Data saved successfully!\n");
+    printf("\nMonthly Summary:\n");
+    printf("Total Budget: %.2f\n", totalBudget);
+    printf("Total Spent: %.2f\n", totalSpent);
+    printf("Savings: %.2f\n", totalBudget - totalSpent);
 }
 
-DayRecordNode *loadDataFromFile(char *filename)
-{
-    FILE *fp = fopen(filename, "r");
-    if (fp == NULL)
-    {
-        printf("Error opening file or file not found!\n");
-        return NULL;
-    }
-
-    DayRecordNode *head = NULL, *temp, *newNode;
-    int date;
-    float budget, remaining;
-
-    while (fscanf(fp, "%d,%f,%f", &date, &budget, &remaining) == 3)
-    {
-        newNode = (DayRecordNode *)malloc(sizeof(DayRecordNode));
-        newNode->date = date;
-        newNode->budget = budget;
-        newNode->remaining = remaining;
-        newNode->next = NULL;
-
-        if (head == NULL)
-        {
-            head = newNode;
+// Free memory
+void freeMonthlyRecord(DayRecordNode *monthlyRecord) {
+    while (monthlyRecord != NULL) {
+        TransactionNode *t = monthlyRecord->transactions;
+        while (t != NULL) {
+            TransactionNode *tmpT = t;
+            t = t->next;
+            free(tmpT);
         }
-        else
-        {
-            temp->next = newNode;
-        }
-        temp = newNode;
+        DayRecordNode *tmp = monthlyRecord;
+        monthlyRecord = monthlyRecord->next;
+        free(tmp);
     }
-
-    fclose(fp);
-    return head;
 }
 
-int main()
-{
+int main() {
     float monthlyBudget;
     int daysInMonth, choice, date;
     float amount;
     char category[50];
-    char filename[50] = "budget_data.csv";
 
     printf("Enter monthly budget: ");
     scanf("%f", &monthlyBudget);
@@ -176,26 +161,24 @@ int main()
 
     DayRecordNode *monthlyRecord = createMonthRecord(monthlyBudget, daysInMonth);
 
-    do
-    {
+    do {
         printf("\nMenu:\n");
         printf("1. Add Transaction\n");
         printf("2. View Remaining Budget\n");
-        printf("3. Save Data\n");
-        printf("4. Load Data\n");
+        printf("3. View Transactions for a Day\n");
+        printf("4. View Monthly Summary\n");
         printf("5. Exit\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
 
-        switch (choice)
-        {
+        switch (choice) {
         case 1:
             printf("Enter date (1-%d): ", daysInMonth);
             scanf("%d", &date);
             printf("Enter amount: ");
             scanf("%f", &amount);
             printf("Enter category: ");
-            scanf("%s", category);
+            scanf("%49s", category);
             addTransaction(monthlyRecord, date, amount, category, daysInMonth);
             break;
         case 2:
@@ -204,14 +187,12 @@ int main()
             displayRemainingBudget(monthlyRecord, date);
             break;
         case 3:
-            saveDataToFile(monthlyRecord, filename);
+            printf("Enter date (1-%d): ", daysInMonth);
+            scanf("%d", &date);
+            displayTransactions(monthlyRecord, date);
             break;
         case 4:
-            monthlyRecord = loadDataFromFile(filename);
-            if (monthlyRecord == NULL)
-            {
-                printf("No saved data found.\n");
-            }
+            displayMonthlySummary(monthlyRecord);
             break;
         case 5:
             printf("Exiting...\n");
@@ -221,7 +202,6 @@ int main()
         }
     } while (choice != 5);
 
-    saveDataToFile(monthlyRecord, filename);
-
+    freeMonthlyRecord(monthlyRecord);
     return 0;
 }
